@@ -13,7 +13,7 @@ type systemGpg struct {
 }
 
 func (s *systemGpg) encrypt(input string, ids ...string) (string, error) {
-	args := []string{"--encrypt", "--armor", "--quiet", "--yes", "--no-encrypt-to"}
+	args := []string{"--encrypt", "--armor", "--quiet", "--yes", "--no-encrypt-to", "--trust-model", "always"}
 	for _, id := range ids {
 		args = append(args, "--recipient", id)
 	}

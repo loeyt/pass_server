@@ -8,4 +8,5 @@ RUN go install -v ./...
 FROM alpine:3.7
 RUN apk --no-cache add gnupg
 COPY --from=build /go/bin/pass_server /usr/bin/pass_server
+EXPOSE 7277
 CMD ["pass_server"]
