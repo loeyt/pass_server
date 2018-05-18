@@ -10,7 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/openpgp/armor"
@@ -122,22 +124,44 @@ func run() error {
 	rh := &replacingHandler{
 		Handler: server.handler(),
 	}
-	go func() {
-		for {
-			select {
-			case <-c:
-				log.Printf("caught SIGUSR1, reloading")
-				server, err := builder.build()
-				if err != nil {
-					log.Printf("failed to reload: %v", err)
-				} else {
-					rh.replace(server.handler())
-					log.Printf("reload successful")
-				}
-			}
+
+	go onSignal(c, func() {
+		log.Println("reloading")
+		server, err := builder.build()
+		if err != nil {
+			log.Printf("failed to reload: %v\n", err)
+		} else {
+			rh.replace(server.handler())
+			log.Println("reload successful")
 		}
-	}()
+	})
+
 	log.Printf("starting server at %q", *addr)
 	err = http.ListenAndServe(*addr, rh)
 	return err
+}
+
+func onSignal(c <-chan os.Signal, f func()) {
+	var mu sync.Mutex
+	for {
+		select {
+		case sig := <-c:
+			log.Printf("caught %s\n", sig)
+		delay:
+			for {
+				select {
+				case sig := <-c:
+					log.Printf("caught %s\n", sig)
+				case <-time.After(time.Second):
+					go func() {
+						mu.Lock()
+						defer mu.Unlock()
+						f()
+					}()
+					break delay
+				}
+			}
+
+		}
+	}
 }
